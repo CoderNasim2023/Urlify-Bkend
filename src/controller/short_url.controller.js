@@ -12,7 +12,7 @@ export const createShortUrl = wrapAsync(async (req, res) => {
     } else {
         shortUrl = await createShortUrlWithoutUser(data.url)
     }
-    const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || `${req.protocol}://${req.get('host')}`
+    const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || 'https://urlify.co.in'
     res.status(200).json({ shortUrl: baseUrl.replace(/\/$/, '') + '/' + shortUrl })
 })
 
@@ -89,6 +89,6 @@ export const resolveShortUrl = wrapAsync(async (req, res) => {
 export const createCustomShortUrl = wrapAsync(async (req, res) => {
     const { url, slug } = req.body
     const shortUrl = await createShortUrlWithoutUser(url, slug)
-    const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || `${req.protocol}://${req.get('host')}`
+    const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || 'https://urlify.co.in'
     res.status(200).json({ shortUrl: baseUrl.replace(/\/$/, '') + '/' + shortUrl })
 })
