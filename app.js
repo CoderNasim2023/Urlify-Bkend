@@ -1,4 +1,7 @@
 import express from "express";
+import logger from "./src/utils/logger.js";
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 import { nanoid } from "nanoid"
 import dotenv from "dotenv"
 dotenv.config()
@@ -97,6 +100,17 @@ app.use(attachUser)
 app.use("/api/user", user_routes)
 app.use("/api/create", short_url)
 
+// Swagger setup
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: { title: 'Urlify API', version: '1.0.0', description: 'API for URL Shortener' },
+    },
+    apis: ['./src/routes/*.js'],
+};
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Home route
 app.get('/', (req, res) => {
     res.send("Backend Default home route is running succesfully")
@@ -130,8 +144,8 @@ app.use(errorHandler)
 
 // Prevent server crash on unhandled errors
 process.on('unhandledRejection', (err) => {
-    console.error('UNHANDLED REJECTION! 💥 Shutting down...');
-    console.error(err.name, err.message);
+    logger.error('UNHANDLED REJECTION! 💥 Shutting down...');
+    logger.error(`${err.name}: ${err.message}`);
     process.exit(1);
 });
 
@@ -141,15 +155,15 @@ const server = app.listen(PORT, async () => {
     try {
         await initRedis()
     } catch (err) {
-        console.error('Redis initialization failed:', err)
+        logger.error(`Redis initialization failed: ${err}`);
     }
-    console.log(` Backend Server is running on http://localhost:${PORT}`);
+    logger.info(` Backend Server is running on http://localhost:${PORT}`);
 })
 
 // Termination signal handling
 process.on('SIGTERM', () => {
-    console.log('👋 SIGTERM RECEIVED. Shutting down gracefully');
+    logger.info('👋 SIGTERM RECEIVED. Shutting down gracefully');
     server.close(() => {
-        console.log('💥 Process terminated!');
+        logger.info('💥 Process terminated!');
     });
 });

@@ -3,17 +3,23 @@ import { createShortUrlWithoutUser, createShortUrlWithUser } from "../services/s
 import wrapAsync from "../utils/tryCatchWrapper.js"
 import { getRedisClient } from "../config/redis.config.js"
 import { NotFoundError } from "../utils/errorHandler.js"
+import QRCode from "qrcode"
+import useragent from "useragent"
+import geoip from "geoip-lite"
+import Analytics from "../models/analytics.model.js"
 
 export const createShortUrl = wrapAsync(async (req, res) => {
-    const data = req.body
+    const { url, slug, expiresAt } = req.body
     let shortUrl
     if (req.user) {
-        shortUrl = await createShortUrlWithUser(data.url, req.user._id, data.slug)
+        shortUrl = await createShortUrlWithUser(url, req.user._id, slug, expiresAt)
     } else {
-        shortUrl = await createShortUrlWithoutUser(data.url)
+        shortUrl = await createShortUrlWithoutUser(url, slug, expiresAt)
     }
     const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || 'https://urlify.co.in'
-    res.status(200).json({ shortUrl: baseUrl.replace(/\/$/, '') + '/' + shortUrl })
+    const fullShortUrl = baseUrl.replace(/\/$/, '') + '/' + shortUrl
+    const qrCode = await QRCode.toDataURL(fullShortUrl)
+    res.status(200).json({ shortUrl: fullShortUrl, qrCode })
 })
 
 
@@ -40,7 +46,11 @@ export const redirectFromShortUrl = wrapAsync(async (req, res) => {
         throw new NotFoundError("Short URL not found")
     }
 
-    // cache for 1 hour
+    if (url.expiresAt && new Date() > url.expiresAt) {
+        return res.status(410).json({ error: "This link has expired" })
+    }
+
+    // cache for 1 hour if not expired
     try {
         const client = getRedisClient()
         if (client) {
@@ -48,6 +58,26 @@ export const redirectFromShortUrl = wrapAsync(async (req, res) => {
         }
     } catch (err) {
         console.warn('Failed to set redis cache', err && err.message)
+    }
+
+    // Analytics Tracking (Fire & Forget)
+    try {
+        const agent = useragent.parse(req.headers['user-agent']);
+        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        if(ip && ip.includes(',')) ip = ip.split(',')[0].trim();
+        const geo = geoip.lookup(ip);
+        
+        Analytics.create({
+            shortUrlId: url._id,
+            ipAddress: ip,
+            country: geo ? geo.country : 'Unknown',
+            city: geo ? geo.city : 'Unknown',
+            browser: agent.family,
+            os: agent.os.family,
+            device: agent.device.family
+        }).catch(err => console.error("Analytics Error", err));
+    } catch(e) {
+        console.error("Analytics Parsing Error", e);
     }
 
     res.redirect(url.full_url)
@@ -87,8 +117,10 @@ export const resolveShortUrl = wrapAsync(async (req, res) => {
 })
 
 export const createCustomShortUrl = wrapAsync(async (req, res) => {
-    const { url, slug } = req.body
-    const shortUrl = await createShortUrlWithoutUser(url, slug)
+    const { url, slug, expiresAt } = req.body
+    const shortUrl = await createShortUrlWithoutUser(url, slug, expiresAt)
     const baseUrl = (process.env.APP_URL && process.env.APP_URL.trim()) || 'https://urlify.co.in'
-    res.status(200).json({ shortUrl: baseUrl.replace(/\/$/, '') + '/' + shortUrl })
+    const fullShortUrl = baseUrl.replace(/\/$/, '') + '/' + shortUrl
+    const qrCode = await QRCode.toDataURL(fullShortUrl)
+    res.status(200).json({ shortUrl: fullShortUrl, qrCode })
 })

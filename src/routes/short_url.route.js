@@ -13,11 +13,55 @@ const validate = (checks) => [
   }
 ];
 
+/**
+ * @swagger
+ * /api/create:
+ *   post:
+ *     summary: Create a short URL
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Success
+ */
 // Normal short URL
 router.post("/", validate([
   body('url').isURL().withMessage('Valid URL is required')
 ]), createShortUrl);
 
+/**
+ * @swagger
+ * /api/create/custom:
+ *   post:
+ *     summary: Create a custom short URL
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Success
+ */
 // Custom short URL (example: /custom)
 router.post("/custom", validate([
   body('url').isURL().withMessage('Valid URL is required'),
